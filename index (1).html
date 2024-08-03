@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Goal Calculator</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #007BFF;
+    }
+    .step {
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input[type="number"], select, .item-entry input[type="text"] {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    input[type="radio"] {
+      margin-right: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .item-entry {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .item-entry input {
+      margin-right: 10px;
+    }
+    .item-entry input[type="text"], .item-entry input[type="number"] {
+      flex: 1;
+    }
+    .item-entry .priority-label {
+      margin-right: 5px;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 5px;
+      background-color: #e9ecef;
+      font-weight: bold;
+      white-space: pre-wrap; /* Allows preserving line breaks in output */
+    }
+    .container {
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Financial Goal Calculator</h1>
+
+    <form id="goalForm">
+      <div class="step">
+        <label for="goalType">Step 1: Choose Your Goal Type:</label>
+        <select id="goalType" required>
+          <option value="amount">Amount</option>
+          <option value="item">Item</option>
+        </select>
+      </div>
+
+      <div class="step" id="amountGoal">
+        <label for="amount">Enter Your Financial Goal (RM):</label>
+        <input type="number" id="amount" min="0" required>
+      </div>
+
+      <div class="step" id="itemGoal" style="display: none;">
+        <div id="itemList">
+          <div class="item-entry">
+            <input type="text" placeholder="Item Name" class="item-name">
+            <input type="number" placeholder="Cost (RM)" min="0" class="item-cost">
+            <label for="priority" class="priority-label">Priority:</label>
+            <input type="range" min="1" max="10" value="5" class="item-priority" title="Set priority">
+            <button type="button" onclick="removeItem(this)">Remove</button>
+          </div>
+        </div>
+        <button type="button" onclick="addItem()">Add Another Item</button>
+      </div>
+
+      <div class="step">
+        <label for="income">Step 2: Enter Your Monthly Income (RM):</label>
+        <input type="number" id="income" min="0" required>
+      </div>
+
+      <div class="step">
+        <label for="expenses">Enter Your Monthly Expenses (RM):</label>
+        <input type="number" id="expenses" min="0" required>
+      </div>
+
+      <div class="step">
+        <label for="currentMoney">Enter Your Currently Available Money (RM):</label>
+        <input type="number" id="currentMoney" min="0" required>
+      </div>
+
+      <div class="step">
+        <label for="bankAmount">Enter Your Bank Amount (RM):</label>
+        <input type="number" id="bankAmount" min="0" required>
+      </div>
+
+      <div class="step">
+        <label>Saving Method:</label>
+        <div>
+          <input type="radio" id="noBank" name="savingMethod" value="noBank" checked>
+          <label for="noBank">Without Bank</label>
+        </div>
+        <div>
+          <input type="radio" id="withBank" name="savingMethod" value="withBank">
+          <label for="withBank">With Bank Only</label>
+        </div>
+        <div>
+          <input type="radio" id="withBankAndCurrent" name="savingMethod" value="withBankAndCurrent">
+          <label for="withBankAndCurrent">With Bank and Current Available Money</label>
+        </div>
+      </div>
+
+      <button type="button" onclick="calculateTime()">Calculate</button>
+    </form>
+
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    document.getElementById('goalType').addEventListener('change', function() {
+      const goalType = this.value;
+      if (goalType === 'amount') {
+        document.getElementById('amountGoal').style.display = 'block';
+        document.getElementById('itemGoal').style.display = 'none';
+      } else if (goalType === 'item') {
+        document.getElementById('amountGoal').style.display = 'none';
+        document.getElementById('itemGoal').style.display = 'block';
+      }
+    });
+
+    function addItem() {
+      const itemList = document.getElementById('itemList');
+      const newItem = document.createElement('div');
+      newItem.className = 'item-entry';
+      newItem.innerHTML = `
+        <input type="text" placeholder="Item Name" class="item-name">
+        <input type="number" placeholder="Cost (RM)" min="0" class="item-cost">
+        <label for="priority" class="priority-label">Priority:</label>
+        <input type="range" min="1" max="10" value="5" class="item-priority" title="Set priority">
+        <button type="button" onclick="removeItem(this)">Remove</button>
+      `;
+      itemList.appendChild(newItem);
+    }
+
+    function removeItem(button) {
+      button.parentElement.remove();
+    }
+
+    function getSortedItems() {
+      const items = Array.from(document.getElementsByClassName('item-entry'));
+      return items.map(item => {
+        const name = item.querySelector('.item-name').value;
+        const cost = parseFloat(item.querySelector('.item-cost').value) || 0;
+        const priority = parseInt(item.querySelector('.item-priority').value);
+        return { name, cost, priority };
+      }).sort((a, b) => b.priority - a.priority);
+    }
+
+    function calculateTime() {
+      const goalType = document.getElementById('goalType').value;
+      const currentMoney = parseFloat(document.getElementById('currentMoney').value) || 0;
+      const bankAmount = parseFloat(document.getElementById('bankAmount').value) || 0;
+      const income = parseFloat(document.getElementById('income').value);
+      const expenses = parseFloat(document.getElementById('expenses').value);
+      const savingsPerMonth = income - expenses;
+      const savingMethod = document.querySelector('input[name="savingMethod"]:checked').value;
+      let totalUnaffordableCost = 0;
+      let items = [];
+
+      if (goalType === 'amount') {
+        totalUnaffordableCost = parseFloat(document.getElementById('amount').value);
+      } else if (goalType === 'item') {
+        items = getSortedItems();
+        totalUnaffordableCost = items.reduce((sum, item) => sum + item.cost, 0);
+      }
+
+      if (savingsPerMonth <= 0) {
+        document.getElementById('result').innerText = "You need to increase your income or decrease your expenses to achieve your goal.";
+        return;
+      }
+
+      function calculateTime(amount, initialAmount) {
+        const remainingAmount = Math.max(0, amount - initialAmount);
+        const months = Math.ceil(remainingAmount / savingsPerMonth);
+        const years = Math.floor(months / 12);
+        const remainingMonths = months % 12;
+        return { years, months: remainingMonths, totalMonths: months };
+      }
+
+      let resultText = "Goal Amount: RM" + totalUnaffordableCost.toFixed(2) + "\n\n";
+      let timeToAchieveGoal;
+
+      if (savingMethod === 'noBank') {
+        timeToAchieveGoal = calculateTime(totalUnaffordableCost, currentMoney);
+        resultText += "Without Bank:\n";
+        resultText += `Using current money: RM ${currentMoney.toFixed(2)}\n`;
+      } else if (savingMethod === 'withBank') {
+        timeToAchieveGoal = calculateTime(totalUnaffordableCost, bankAmount);
+        resultText += "With Bank Only:\n";
+        resultText += `Using bank amount: RM ${bankAmount.toFixed(2)}\n`;
+      } else if (savingMethod === 'withBankAndCurrent') {
+        const combinedAmount = bankAmount + currentMoney;
+        timeToAchieveGoal = calculateTime(totalUnaffordableCost, combinedAmount);
+        resultText += "With Bank and Current Available Money:\n";
+        resultText += `Using combined amount: RM ${combinedAmount.toFixed(2)}\n`;
+      }
+
+      resultText += `Time to achieve goal: ${timeToAchieveGoal.years} year(s) and ${timeToAchieveGoal.months} month(s)\n\n`;
+
+      if (items.length > 0) {
+        let availableMoney = savingMethod === 'noBank' ? currentMoney : (savingMethod === 'withBank' ? bankAmount : (bankAmount + currentMoney));
+        let affordableItems = [];
+        let unaffordableItems = [];
+
+        items.forEach((item, index) => {
+          if (availableMoney >= item.cost) {
+            affordableItems.push(`${index + 1}. ${item.name} - RM${item.cost.toFixed(2)} (Priority: ${item.priority})`);
+            availableMoney -= item.cost;
+          } else {
+            unaffordableItems.push(`${index + 1}. ${item.name} - RM${item.cost.toFixed(2)} (Priority: ${item.priority})`);
+          }
+        });
+
+        resultText += "Affordable Items:\n";
+        if (affordableItems.length > 0) {
+          resultText += affordableItems.join('\n') + '\n\n';
+        } else {
+          resultText += "None\n\n";
+        }
+
+        resultText += "Unaffordable Items:\n";
+        if (unaffordableItems.length > 0) {
+          resultText += unaffordableItems.join('\n') + '\n';
+        } else {
+          resultText += "None\n";
+        }
+      }
+
+      document.getElementById('result').innerText = resultText;
+    }
+  </script>
+
+</body>
+</html>
