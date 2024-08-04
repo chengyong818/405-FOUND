@@ -1,0 +1,552 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Text OCR</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.1/dist/tesseract.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        #uploadBox {
+            border: 2px dashed #007bff;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        #uploadBox.dragover {
+            border-color: #0056b3;
+        }
+        #output, #errorOutput {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .expense-item {
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .expense-item span {
+            flex: 1;
+            font-weight: bold;
+            color: #333;
+        }
+        .expense-item input {
+            width: 120px;
+            margin-left: 10px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #totalOutput {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            font-weight: bold;
+        }
+        #errorOutput {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image to Text OCR</h1>
+    <div id="uploadBox">
+        Drag and Drop / Paste (Ctrl+V)
+        <br><br>
+        <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+        <button id="chooseFileButton">Choose Files</button>
+    </div>
+    <div id="output"></div>
+    <div id="errorOutput"></div>
+    <div id="totalOutput"></div>
+
+    <script>
+        const uploadBox = document.getElementById('uploadBox');
+        const imageUpload = document.getElementById('imageUpload');
+        const chooseFileButton = document.getElementById('chooseFileButton');
+        const output = document.getElementById('output');
+        const errorOutput = document.getElementById('errorOutput');
+        const totalOutput = document.getElementById('totalOutput');
+
+        let dollarExpenses = [];
+        let ringgitExpenses = [];
+        let imageCounter = 0;
+
+        uploadBox.addEventListener('dragover', function(event) {
+            event.preventDefault();
+            uploadBox.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', function(event) {
+            uploadBox.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', function(event) {
+            event.preventDefault();
+            uploadBox.classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        chooseFileButton.addEventListener('click', function() {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', function(event) {
+            const files = event.target.files;
+            handleFiles(files);
+        });
+
+        document.addEventListener('paste', function(event) {
+            const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file') {
+                    const file = items[i].getAsFile();
+                    handleFiles([file]);
+                    break;
+                }
+            }
+        });
+
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                processFile(files[i]);
+            }
+        }
+
+        function processFile(file) {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const img = new Image();
+                    img.src = reader.result;
+                    img.onload = function() {
+                        Tesseract.recognize(img, 'eng', {
+                            logger: function(m) {
+                                console.log(m);
+                            }
+                        }).then(function(result) {
+                            const text = result.data.text;
+                            const dollarRegex = /\$\d+(\.\d{1,2})?/g;
+                            const ringgitRegex = /RM\s?\d+(\.\d{1,2})?/g;
+                            const dollarMatches = text.match(dollarRegex);
+                            const ringgitMatches = text.match(ringgitRegex);
+
+                            if (!dollarMatches && !ringgitMatches) {
+                                errorOutput.innerText = 'Error: No expenses detected in ' + file.name;
+                                return;
+                            }
+
+                            errorOutput.innerText = '';
+
+                            if (dollarMatches) {
+                                const numbers = dollarMatches.map(match => parseFloat(match.replace('$', '')));
+                                const maxNumber = Math.max(...numbers);
+
+                                imageCounter++;
+                                dollarExpenses.push({
+                                    fileName: file.name,
+                                    expense: maxNumber
+                                });
+                            }
+
+                            if (ringgitMatches) {
+                                const numbers = ringgitMatches.map(match => parseFloat(match.replace(/RM\s?/, '')));
+                                const maxNumber = Math.max(...numbers);
+
+                                imageCounter++;
+                                ringgitExpenses.push({
+                                    fileName: file.name,
+                                    expense: maxNumber
+                                });
+                            }
+
+                            updateOutput();
+                        }).catch(function(error) {
+                            console.error(error);
+                            errorOutput.innerText = 'Error: ' + error.message;
+                        });
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function updateOutput() {
+            let outputText = '';
+            let totalDollarExpense = 0;
+            let totalRinggitExpense = 0;
+
+            output.innerHTML = '';
+            dollarExpenses.forEach((expense, index) => {
+                totalDollarExpense += expense.expense;
+                output.innerHTML += `
+                    <div class="expense-item">
+                        <span>${expense.fileName} expense in $:</span>
+                        <input type="number" step="0.01" value="${expense.expense}" onchange="updateExpense('dollar', ${index}, this.value)">
+                    </div>
+                `;
+            });
+
+            ringgitExpenses.forEach((expense, index) => {
+                totalRinggitExpense += expense.expense;
+                output.innerHTML += `
+                    <div class="expense-item">
+                        <span>${expense.fileName} expense in RM:</span>
+                        <input type="number" step="0.01" value="${expense.expense}" onchange="updateExpense('ringgit', ${index}, this.value)">
+                    </div>
+                `;
+            });
+
+            let totalOutputText = '';
+            if (totalDollarExpense > 0) {
+                totalOutputText += `Total in $ = $${totalDollarExpense.toFixed(2)}\n`;
+            }
+
+            if (totalRinggitExpense > 0) {
+                totalOutputText += `Total in RM = RM${totalRinggitExpense.toFixed(2)}\n`;
+            }
+
+            totalOutput.innerText = totalOutputText;
+        }
+
+        window.updateExpense = function(currency, index, value) {
+            if (currency === 'dollar') {
+                dollarExpenses[index].expense = parseFloat(value);
+            } else if (currency === 'ringgit') {
+                ringgitExpenses[index].expense = parseFloat(value);
+            }
+            updateOutput();
+        };
+    </script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Text OCR</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.1/dist/tesseract.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        #uploadBox {
+            border: 2px dashed #007bff;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        #uploadBox.dragover {
+            border-color: #0056b3;
+        }
+        #output, #errorOutput {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .expense-item {
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .expense-item span {
+            flex: 1;
+            font-weight: bold;
+            color: #333;
+        }
+        .expense-item input {
+            width: 120px;
+            margin-left: 10px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #totalOutput {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            font-weight: bold;
+        }
+        #errorOutput {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image to Text OCR</h1>
+    <div id="uploadBox">
+        Drag and Drop / Paste (Ctrl+V)
+        <br><br>
+        <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+        <button id="chooseFileButton">Choose Files</button>
+    </div>
+    <div id="output"></div>
+    <div id="errorOutput"></div>
+    <div id="totalOutput"></div>
+    <button id="manualAddButton" style="display: none;">Manually Add Expense</button>
+
+    <script>
+        const uploadBox = document.getElementById('uploadBox');
+        const imageUpload = document.getElementById('imageUpload');
+        const chooseFileButton = document.getElementById('chooseFileButton');
+        const output = document.getElementById('output');
+        const errorOutput = document.getElementById('errorOutput');
+        const totalOutput = document.getElementById('totalOutput');
+        const manualAddButton = document.getElementById('manualAddButton');
+
+        let dollarExpenses = [];
+        let ringgitExpenses = [];
+        let imageCounter = 0;
+
+        uploadBox.addEventListener('dragover', function(event) {
+            event.preventDefault();
+            uploadBox.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', function(event) {
+            uploadBox.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', function(event) {
+            event.preventDefault();
+            uploadBox.classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        chooseFileButton.addEventListener('click', function() {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', function(event) {
+            const files = event.target.files;
+            handleFiles(files);
+        });
+
+        document.addEventListener('paste', function(event) {
+            const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file') {
+                    const file = items[i].getAsFile();
+                    handleFiles([file]);
+                    break;
+                }
+            }
+        });
+
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                processFile(files[i]);
+            }
+        }
+
+        function processFile(file) {
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const img = new Image();
+                    img.src = reader.result;
+                    img.onload = function() {
+                        Tesseract.recognize(img, 'eng', {
+                            logger: function(m) {
+                                console.log(m);
+                            }
+                        }).then(function(result) {
+                            const text = result.data.text;
+                            const dollarRegex = /\$\d+(\.\d{1,2})?/g;
+                            const ringgitRegex = /RM\s?\d+(\.\d{1,2})?/g;
+                            const dollarMatches = text.match(dollarRegex);
+                            const ringgitMatches = text.match(ringgitRegex);
+
+                            if (!dollarMatches && !ringgitMatches) {
+                                errorOutput.innerText = 'Error: No expenses detected in ' + file.name;
+                                manualAddButton.style.display = 'block';
+                                manualAddButton.onclick = function() {
+                                    addManualExpense(file.name);
+                                };
+                                return;
+                            }
+
+                            errorOutput.innerText = '';
+                            manualAddButton.style.display = 'none';
+
+                            if (dollarMatches) {
+                                const numbers = dollarMatches.map(match => parseFloat(match.replace('$', '')));
+                                const maxNumber = Math.max(...numbers);
+
+                                imageCounter++;
+                                dollarExpenses.push({
+                                    fileName: file.name,
+                                    expense: maxNumber
+                                });
+                            }
+
+                            if (ringgitMatches) {
+                                const numbers = ringgitMatches.map(match => parseFloat(match.replace(/RM\s?/, '')));
+                                const maxNumber = Math.max(...numbers);
+
+                                imageCounter++;
+                                ringgitExpenses.push({
+                                    fileName: file.name,
+                                    expense: maxNumber
+                                });
+                            }
+
+                            updateOutput();
+                        }).catch(function(error) {
+                            console.error(error);
+                            errorOutput.innerText = 'Error: ' + error.message;
+                        });
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function updateOutput() {
+            let outputText = '';
+            let totalDollarExpense = 0;
+            let totalRinggitExpense = 0;
+
+            output.innerHTML = '';
+            dollarExpenses.forEach((expense, index) => {
+                totalDollarExpense += expense.expense;
+                output.innerHTML += `
+                    <div class="expense-item">
+                        <span>${expense.fileName} expense in $:</span>
+                        <input type="number" step="0.01" value="${expense.expense}" onchange="updateExpense('dollar', ${index}, this.value)">
+                    </div>
+                `;
+            });
+
+            ringgitExpenses.forEach((expense, index) => {
+                totalRinggitExpense += expense.expense;
+                output.innerHTML += `
+                    <div class="expense-item">
+                        <span>${expense.fileName} expense in RM:</span>
+                        <input type="number" step="0.01" value="${expense.expense}" onchange="updateExpense('ringgit', ${index}, this.value)">
+                    </div>
+                `;
+            });
+
+            let totalOutputText = '';
+            if (totalDollarExpense > 0) {
+                totalOutputText += `Total in $ = $${totalDollarExpense.toFixed(2)}\n`;
+            }
+
+            if (totalRinggitExpense > 0) {
+                totalOutputText += `Total in RM = RM${totalRinggitExpense.toFixed(2)}\n`;
+            }
+
+            totalOutput.innerText = totalOutputText;
+        }
+
+        window.updateExpense = function(currency, index, value) {
+            if (currency === 'dollar') {
+                dollarExpenses[index].expense = parseFloat(value);
+            } else if (currency === 'ringgit') {
+                ringgitExpenses[index].expense = parseFloat(value);
+            }
+            updateOutput();
+        };
+
+        function addManualExpense(fileName) {
+            const manualExpense = prompt('Enter expense in format (Currency Amount), e.g., "$50.00" or "RM100.00"');
+            if (manualExpense) {
+                const dollarRegex = /\$\d+(\.\d{1,2})?/;
+                const ringgitRegex = /RM\s?\d+(\.\d{1,2})?/;
+
+                if (dollarRegex.test(manualExpense)) {
+                    const expense = parseFloat(manualExpense.replace('$', ''));
+                    dollarExpenses.push({
+                        fileName: fileName + ' (manual)',
+                        expense: expense
+                    });
+                } else if (ringgitRegex.test(manualExpense)) {
+                    const expense = parseFloat(manualExpense.replace(/RM\s?/, ''));
+                    ringgitExpenses.push({
+                        fileName: fileName + ' (manual)',
+                        expense: expense
+                    });
+                } else {
+                    alert('Invalid format. Please try again.');
+                    return;
+                }
+                updateOutput();
+            }
+        }
+    </script>
+</body>
+</html>
