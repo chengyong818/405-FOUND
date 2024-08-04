@@ -67,10 +67,10 @@ try:
     driver.get("https://www.hargapedia.com.my/")
 
     # Wait
-    driver.implicitly_wait(10)  # 最大等待时间10秒钟
+    driver.implicitly_wait(10)
 
     # Find “fominimize” element
-    time.sleep(5)  # 等待广告加载完成
+    time.sleep(5)
     try:
         fominimize = driver.find_element(By.CSS_SELECTOR, ".fominimize img")
         fominimize.click()
