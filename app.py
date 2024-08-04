@@ -7,8 +7,8 @@ import re
 
 app = Flask(__name__)
 
-# 设置WebDriver
-service = Service('C:/Users/junhu/Downloads/New folder/edgedriver_win64/msedgedriver.exe')  # 指定msedgedriver.exe的路径
+# Setup WebDriver
+service = Service('C:/Users/(Users)/Downloads/msedgedriver.exe')  # Set msedgedriver.exe path, Users need to write the computer user name
 driver = webdriver.Edge(service=service)
 
 product_name = 'Yeo\'s Soya Bean'
@@ -63,32 +63,30 @@ def find_closest_product(products, target_price):
     return closest_product
 
 try:
-    # 打开网站
+    # Open the website
     driver.get("https://www.hargapedia.com.my/")
 
-    # 等待网页加载
+    # Wait
     driver.implicitly_wait(10)  # 最大等待时间10秒钟
 
-    # 等待广告元素加载并找到“fominimize”元素
+    # Find “fominimize” element
     time.sleep(5)  # 等待广告加载完成
     try:
         fominimize = driver.find_element(By.CSS_SELECTOR, ".fominimize img")
         fominimize.click()
     except:
-        pass  # 如果找不到广告则继续
+        pass
 
-    # 定位到搜索框并输入商品名称
+    # Search for the search bar
     search_box = driver.find_element(By.CSS_SELECTOR, "input[placeholder='Search & Compare to Save!']")
     search_box.send_keys(product_name)
     
-    # 定位到搜索按钮并点击
     search_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
     search_button.click()
 
-    # 等待搜索结果加载
-    time.sleep(10)  # 等待最大10秒钟
+    time.sleep(10)
 
-    # 获取搜索结果容器
+    # Find the container that include the search data
     product_containers = driver.find_elements(By.CSS_SELECTOR, ".styles_productcardContainer__e6fx1")
 
     # Print debug information for each container
@@ -128,7 +126,7 @@ try:
 finally:
     driver.quit()
 
-# 设置Flask路由
+# Setup the Flask
 @app.route('/search_results', methods=['GET'])
 def search_results():
     return jsonify(products)
